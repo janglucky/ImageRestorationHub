@@ -10,7 +10,7 @@ A Image restoration hub based on basicsr library, including: image super resolut
 - torch=2.4.0
 - torchvision=0.19.0
 
-### Installation
+## Installation
 ```
 pip install -r requirements.txt
 python setup.py develop
