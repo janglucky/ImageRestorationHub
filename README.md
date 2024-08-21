@@ -13,4 +13,5 @@ torchvision=0.19.0
 ### Installation
 ```
 pip install -r requirements.txt
+python setup.py develop
 ```
