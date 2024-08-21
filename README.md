@@ -6,9 +6,9 @@ A Image restoration hub based on basicsr library, including: image super resolut
 - SwinIR. A swin-tansformer based strong image resotration baseline.
 
 ## Enviroments
-python=3.10.14
-torch=2.4.0
-torchvision=0.19.0
+- python=3.10.14
+- torch=2.4.0
+- torchvision=0.19.0
 
 ### Installation
 ```
