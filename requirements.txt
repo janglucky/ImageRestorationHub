@@ -16,3 +16,4 @@ yapf
 timm
 thop
 ptflops
+onnx==1.15.0

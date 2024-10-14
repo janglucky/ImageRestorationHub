@@ -1,0 +1,221 @@
+# general settings
+name: train_ecbsr_m8c32_x2_paired_div2k_relu
+model_type: GANPairedModel
+scale: 2
+num_gpu: 1
+manual_seed: 0
+distill: 0
+
+# ----------------- osynthesizing data ----------------- #
+# USM the ground-truth
+l1_gt_usm: true
+percep_gt_usm: false
+gan_gt_usm: false
+
+# ----------------- finetuning ----------------- #
+
+# the first degradation process
+resize_prob: [0.2, 0.7, 0.1]  # up, down, keep
+resize_range: [0.15, 1.5]
+gaussian_noise_prob: 0.5
+noise_range: [1, 2] # 30
+poisson_scale_range: [0.05, 0.1] # 3
+gray_noise_prob: 0.4
+jpeg_range: [30, 95]
+
+# the second degradation process
+second_blur_prob: 0.8
+resize_prob2: [0.3, 0.4, 0.3]  # up, down, keep
+resize_range2: [0.3, 1.2]
+gaussian_noise_prob2: 0.5
+noise_range2: [1, 2] # 25
+poisson_scale_range2: [0.05, 0.1] # 2.5
+gray_noise_prob2: 0.4
+jpeg_range2: [30, 95]
+
+gt_size: 256
+queue_size: 512
+
+# dataset and data loader settings
+datasets:
+  train:
+    name: DIV2KTrainSub
+    type: PairedImageDataset
+    dataroot_gt: /home/guider/nas/data/sr/DIV2K_train_HR_sub_paired/gt
+    dataroot_lq: /home/guider/nas/data/sr/DIV2K_train_HR_sub_paired/lr
+    io_backend:
+      type: disk
+
+    blur_kernel_size: 21
+    kernel_list: ['iso', 'aniso', 'generalized_iso', 
+                  'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+    kernel_prob: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
+    sinc_prob: 0.1
+    blur_sigma: [1, 9] #[0.2, 3]
+    betag_range: [0.5, 4]
+    betap_range: [1, 2]
+
+    blur_kernel_size2: 21
+    kernel_list2: ['iso', 'aniso', 'generalized_iso',
+                  'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+    kernel_prob2: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
+    sinc_prob2: 0.1
+    blur_sigma2: [1, 9] #[0.2, 1.5]
+    betag_range2: [0.5, 4]
+    betap_range2: [1, 2]
+
+    final_sinc_prob: 0.8
+
+    gt_size: 256
+    use_flip: True
+    use_rot: False
+    
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 4
+    batch_size_per_gpu: 16
+    dataset_enlarge_ratio: 1
+    prefetch_mode: cuda
+    pin_memory: true
+
+  val:
+    name: validation
+    type: PairedImageDataset
+    dataroot_gt: /home/guider/data/sr/crop/demo_sub/gt
+    dataroot_lq: /home/guider/data/sr/crop/demo_sub/lr
+    io_backend:
+      type: disk
+
+# network structures
+network_g:
+  type: ECBSR
+  module_nums: 8
+  channel_nums: 32
+  with_idt: 0
+  act_type: 'relu'
+  scale: 2
+  colors: 1
+
+network_d:
+  type: UNetDiscriminatorSN
+  num_in_ch: 1
+  num_feat: 16
+  skip_connection: True
+
+# path
+path:
+  # use the pre-trained Real-ESRNet model
+  pretrain_network_g: ~
+  param_key_g: params_ema
+  strict_load_g: false
+  resume_state: ~
+
+# training settings
+train:
+  optim_g:
+    type: Adam
+    lr: !!float 1e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+  optim_d:
+    type: Adam
+    lr: !!float 1e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [4321_000]
+    gamma: 0.5
+
+  total_iter: 4321_000
+  warmup_iter: -1  # no warm up
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: !!float 1.0
+    reduction: mean
+  # content loss
+  content_opt:
+    type: MSSSIM
+    data_range: 1.0
+    size_average: True
+    channel: 1
+    loss_weight: !!float 1.0
+  # edge losses
+  sobel_opt:
+    type: SobelLoss
+    loss_weight: !!float 1.0
+    reduction: mean
+  scharr_opt:
+    type: ScharrLoss
+    loss_weight: !!float 0.0
+    reduction: mean
+  laplacian_opt:
+    type: LaplacianLoss
+    loss_weight: !!float 1.0
+    reduction: mean
+  # artifacts loss
+  artifacts_opt:
+    type: L1Loss
+    loss_weight: !!float 0.0
+    reduction: mean
+  # perceptual loss (content and style losses)
+  perceptual_opt:
+    type: PerceptualLoss
+    layer_weights:
+      # before relu
+      'conv1_2': 0.1
+      'conv2_2': 0.1
+      'conv3_4': 1
+      'conv4_4': 1
+      'conv5_4': 1
+    vgg_type: vgg19
+    use_input_norm: true
+    perceptual_weight: !!float 1.0
+    style_weight: 0
+    range_norm: false
+    criterion: l1
+  # gan loss
+  gan_opt:
+    type: GANLoss
+    gan_type: vanilla
+    real_label_val: 1.0
+    fake_label_val: 0.0
+    loss_weight: !!float 1.0
+
+  net_d_iters: 1
+  net_d_init_iters: 0
+  ema_decay: 0.999
+
+# Uncomment these for validation
+# validation settings
+val:
+ val_freq: !!float 5e3
+ save_img: True #True
+
+ metrics:
+    psnr: # metric name
+      type: calculate_psnr
+      crop_border: 4
+      test_y_channel: false
+    ssim: # metric name
+      type: calculate_ssim
+      crop_border: 4
+      test_y_channel: false
+
+# logging settings
+logger:
+  print_freq: 200
+  save_checkpoint_freq: !!float 5e3
+  use_tb_logger: false
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500

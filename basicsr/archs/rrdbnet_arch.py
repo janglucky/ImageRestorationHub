@@ -84,9 +84,10 @@ class RRDBNet(nn.Module):
         num_grow_ch (int): Channels for each growth. Default: 32.
     """
 
-    def __init__(self, num_in_ch, num_out_ch, scale=4, num_feat=64, num_block=23, num_grow_ch=32):
+    def __init__(self, num_in_ch, num_out_ch, scale=4, num_feat=64, num_block=23, num_grow_ch=32, phase = 'train'):
         super(RRDBNet, self).__init__()
         self.scale = scale
+        self.phase = phase
         if scale == 2:
             num_in_ch = num_in_ch * 4
         elif scale == 1:
@@ -120,4 +121,7 @@ class RRDBNet(nn.Module):
         # if self.scale == 8:
         #     feat = self.lrelu(self.conv_up3(F.interpolate(feat, scale_factor=2, mode='nearest')))
         out = self.conv_last(self.lrelu(self.conv_hr(feat)))
+
+        if self.phase in ['test', 'export']:
+            out = torch.clamp(out * 255, 0, 255)
         return out
