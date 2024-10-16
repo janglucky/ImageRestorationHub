@@ -43,23 +43,60 @@ class SRGANModel(SRModel):
         self.net_d.train()
 
         # define losses
-        if train_opt.get('pixel_opt'):
+        if train_opt.get('pixel_opt') and train_opt['pixel_opt']['loss_weight'] > 0:
             self.cri_pix = build_loss(train_opt['pixel_opt']).to(self.device)
         else:
             self.cri_pix = None
 
-        if train_opt.get('artifacts_opt'):
+        if train_opt.get('content_opt') and train_opt['content_opt']['loss_weight'] > 0:
+            self.cri_content = build_loss(train_opt['content_opt']).to(self.device)
+        else:
+            self.cri_content = None
+
+        if train_opt.get('edge_opt') and train_opt['edge_opt']['loss_weight'] > 0:
+            self.cri_edge = build_loss(train_opt['edge_opt']).to(self.device)
+        else:
+            self.cri_edge = None
+
+        if train_opt.get('freq_opt') and train_opt['freq_opt']['loss_weight'] > 0:
+            self.cri_freq = build_loss(train_opt['freq_opt']).to(self.device)
+        else:
+            self.cri_freq = None
+
+        if train_opt.get('nrss_opt') and train_opt['nrss_opt']['loss_weight'] > 0:
+            self.cri_nrss = build_loss(train_opt['nrss_opt']).to(self.device)
+        else:
+            self.cri_nrss = None
+
+        if train_opt.get('artifacts_opt') and train_opt['artifacts_opt']['loss_weight'] > 0:
             self.cri_artifacts = build_loss(train_opt['artifacts_opt']).to(self.device)
         else:
             self.cri_artifacts = None
 
-        if train_opt.get('perceptual_opt'):
+        if train_opt.get('perceptual_opt') and train_opt['perceptual_opt']['perceptual_weight'] > 0:
             self.cri_perceptual = build_loss(train_opt['perceptual_opt']).to(self.device)
         else:
             self.cri_perceptual = None
 
-        if train_opt.get('gan_opt'):
+        if train_opt.get('gan_opt') and train_opt['gan_opt']['loss_weight'] > 0:
             self.cri_gan = build_loss(train_opt['gan_opt']).to(self.device)
+        else:
+            self.cri_gan = None
+
+        if train_opt.get('sobel_opt') and train_opt['sobel_opt']['loss_weight'] > 0:
+            self.cri_sobel = build_loss(train_opt['sobel_opt']).to(self.device)
+        else:
+            self.cri_sobel = None
+
+        if train_opt.get('laplacian_opt') and train_opt['laplacian_opt']['loss_weight'] > 0:
+            self.cri_laplacian = build_loss(train_opt['laplacian_opt']).to(self.device)
+        else:
+            self.cri_laplacian = None
+
+        if train_opt.get('scharr_opt') and train_opt['scharr_opt']['loss_weight'] > 0:
+            self.cri_scharr = build_loss(train_opt['scharr_opt']).to(self.device)
+        else:
+            self.cri_scharr = None
 
         self.net_d_iters = train_opt.get('net_d_iters', 1)
         self.net_d_init_iters = train_opt.get('net_d_init_iters', 0)
@@ -72,7 +109,7 @@ class SRGANModel(SRModel):
         train_opt = self.opt['train']
         # optimizer g
         optim_type = train_opt['optim_g'].pop('type')
-        self.optimizer_g = self.get_optimizer(optim_type, self.net_g.parameters(), **train_opt['optim_g'])
+        self.optimizer_g = self.get_optimizer(optim_type, filter(lambda p: p.requires_grad, self.net_g.parameters()), **train_opt['optim_g'])
         self.optimizers.append(self.optimizer_g)
         # optimizer d
         optim_type = train_opt['optim_d'].pop('type')

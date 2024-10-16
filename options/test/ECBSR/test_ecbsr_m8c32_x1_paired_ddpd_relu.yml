@@ -1,0 +1,80 @@
+# general settings
+name: test_ecbsr_m8c32_x1_paired_ddpd_relu
+model_type: SRModel
+scale: 1
+num_gpu: 1
+manual_seed: 0
+distill: 0
+
+# ----------------- osynthesizing data ----------------- #
+# USM the ground-truth
+l1_gt_usm: false
+percep_gt_usm: false
+gan_gt_usm: false
+
+
+# dataset and data loader settings
+datasets:
+  
+  test:
+    name: DDPD_test
+    type: PairedImageDataset
+    dataroot_gt: /home/guider/data/sr/DDPD/test_c/target
+    dataroot_lq: /home/guider/data/sr/DDPD/test_c/coarse_test
+    io_backend:
+      type: disk
+
+# network structures
+network_g:
+  type: ECBSR
+  module_nums: 8
+  channel_nums: 32
+  with_idt: 0
+  act_type: 'relu'
+  scale: 1
+  colors: 3
+
+network_d:
+  type: UNetDiscriminatorSN
+  num_in_ch: 3
+  num_feat: 16
+  skip_connection: True
+
+# path
+path:
+  # use the pre-trained Real-ESRNet model
+  pretrain_network_g: /home/guider/work/ImageRestorationHub/experiments/train_ecbsr_m8c32_x1_paired_ddpd_relu/models/net_g_11000.pth
+  param_key_g: params_ema
+  strict_load_g: true
+  resume_state: ~
+
+# Uncomment these for validation
+# validation settings
+val:
+ save_img: true
+ grids: false
+ suffix: ~
+
+ metrics:
+    psnr: # metric name
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+    ssim: # metric name
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel: false
+
+# logging settings
+logger:
+  print_freq: 10
+  save_checkpoint_freq: !!float 1e3
+  use_tb_logger: false
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500

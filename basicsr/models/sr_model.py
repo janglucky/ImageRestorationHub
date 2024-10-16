@@ -168,7 +168,7 @@ class SRModel(BaseModel):
                                                  f'{img_name}_{self.opt["val"]["suffix"]}.png')
                     else:
                         save_img_path = osp.join(self.opt['path']['visualization'], dataset_name,
-                                                 f'{img_name}_{self.opt["name"]}.png')
+                                                 f'{img_name}.png')
                 imwrite(sr_img, save_img_path)
 
             if with_metrics:

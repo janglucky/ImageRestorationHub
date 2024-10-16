@@ -3,3 +3,4 @@ basicsr.egg-info
 experiments
 __pycache__
 tb_logger
+results

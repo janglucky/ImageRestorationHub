@@ -13,11 +13,11 @@ from torch.nn import functional as F
 
 
 @MODEL_REGISTRY.register()
-class GANPairedModel(SRGANModel):
+class GANTripledModel(SRGANModel):
     """RealESRGAN Model"""
 
     def __init__(self, opt):
-        super(GANPairedModel, self).__init__(opt)
+        super(GANTripledModel, self).__init__(opt)
         self.usm_sharpener = USMSharp().cuda()
 
 
@@ -31,11 +31,16 @@ class GANPairedModel(SRGANModel):
             # self.gt = self.gt.mean(dim=1, keepdim=True)
             self.gt_usm = self.usm_sharpener(self.gt)
 
+        if 'add' in data:
+            self.add = data['add'].to(self.device)
+            self.gt_usm = self.usm_sharpener(self.add)
+
+
 
     def nondist_validation(self, dataloader, current_iter, tb_logger, save_img):
         # do not use the synthetic process during validation
         self.is_train = False
-        super(GANPairedModel, self).nondist_validation(
+        super(GANTripledModel, self).nondist_validation(
             dataloader, current_iter, tb_logger, save_img)
         self.is_train = True
 
@@ -56,7 +61,7 @@ class GANPairedModel(SRGANModel):
             p.requires_grad = False
 
         self.optimizer_g.zero_grad()
-        self.output = self.net_g(self.lq)
+        self.output = self.net_g(self.lq, self.add)
 
         if not isinstance(self.output, list):
             self.output = [self.output]

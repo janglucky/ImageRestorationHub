@@ -1,6 +1,6 @@
 # flake8: noqa
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 import os.path as osp
 from basicsr.train import train_pipeline
 

@@ -6,6 +6,7 @@ import numpy as np
 from torchvision import transforms
 from PIL import Image
 from basicsr.archs.ecbsr_arch import ECBSR, PlainSR, model_ecbsr_rep
+from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 
 
 parser = argparse.ArgumentParser(description='ECBSR convertor')
@@ -23,6 +24,7 @@ parser.add_argument('--inp_c', type=int, default=1, help = 'channel size of inpu
 parser.add_argument('--inp_h', type=int, default=256, help = 'height of input data')
 parser.add_argument('--inp_w', type=int, default=192, help = 'width of input data')
 parser.add_argument('--img', default='/home/guider/work/super_resolution/crop.bmp', help='low resolution image filename.')
+parser.add_argument('--gt', default='/home/guider/work/super_resolution/crop.bmp', help='low resolution image filename.')
 parser.add_argument('--mark', default=None, help='low resolution image filename.')
 
 if __name__ == '__main__':
@@ -33,17 +35,19 @@ if __name__ == '__main__':
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
     
-    device = torch.device('cuda')
+    device = torch.device('cuda:0')
     ## definitions of model, loss, and optimizer
     model_ecbsr = ECBSR(module_nums=args.m_ecbsr, channel_nums=args.c_ecbsr, with_idt=args.idt_ecbsr, act_type=args.act_type, scale=args.scale, colors=args.inp_c).to(device)
-    model_plain = PlainSR(module_nums=args.m_ecbsr, channel_nums=args.c_ecbsr, act_type=args.act_type, scale=args.scale, colors=args.inp_c).to(device)
+    model_plain = PlainSR(module_nums=args.m_ecbsr, channel_nums=args.c_ecbsr, act_type=args.act_type, scale=args.scale, colors=args.inp_c, export_norm=True).to(device)
+    model_ecbsr.requires_grad_(False)
+    model_plain.requires_grad_(False)
     
-    # if args.pretrain is not None:
-    #     print("load pretrained model: {}!".format(args.pretrain))
-    #     ckpt = torch.load(args.pretrain, map_location=device)
-    #     model_ecbsr.load_state_dict(torch.load(args.pretrain, map_location=device)['params_ema'], strict=True)
-    # else:
-    #     raise ValueError('the pretrain path is invalud!')
+    if args.pretrain is not None:
+        print("load pretrained model: {}!".format(args.pretrain))
+        ckpt = torch.load(args.pretrain, map_location=device)
+        model_ecbsr.load_state_dict(torch.load(args.pretrain, map_location=device)['params_ema'], strict=True)
+    else:
+        raise ValueError('the pretrain path is invalud!')
     
     model_ecbsr_rep(model_ecbsr, model_plain)
 
@@ -54,30 +58,44 @@ if __name__ == '__main__':
     # print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
     if os.path.isdir(args.img):
-        for file in os.listdir(args.img):
-            if args.mark != None and args.mark not in file:
-                continue
-            filename = os.path.join(args.img, file)
+        lq_files = sorted(os.listdir(args.img))
+        gt_files = sorted(os.listdir(args.gt))
+        ssim_total = 0.0
+        for i, (lq_file, gt_file) in enumerate(zip(lq_files, gt_files)):
+
+            lq_file = os.path.join(args.img, lq_file)
+            gt_file = os.path.join(args.gt, gt_file)
+            print(lq_file, gt_file)
             if args.inp_c == 1:
-                img = Image.open(filename).convert("L")
+                img = Image.open(lq_file).convert("L")
+                gt = Image.open(gt_file).convert("gt")
             else:
-                img = Image.open(filename).convert('RGB')
-            # img = cv2.resize(img, (args.inp_w, args.inp_h), interpolation = cv2.INTER_LINEAR)
-            # print(img.shape)
-            # cv2.imwrite(os.path.join(args.output_folder, "gray_" + os.path.basename(file)), img)
+                img = Image.open(lq_file).convert('RGB')
+                gt = Image.open(gt_file).convert('RGB')
+
            
             transform_test = transforms.Compose([
             transforms.ToTensor(),
             ])
 
             img = transform_test(img).unsqueeze(0).to(device)
-            print(img.shape)
+            gt = transform_test(gt).unsqueeze(0).to(device)
+            # print(img.shape)
             import time
             start_time = time.time()
             pred = model_plain(img)
-            print(f"total elapsed: {(time.time() - start_time) * 1000}ms")
-            pred = pred.cpu().detach().numpy().squeeze(1).transpose((1, 2, 0))
-            cv2.imwrite(os.path.join(args.output_folder, os.path.basename(file[:-4]+".bmp")), pred)
+            # print(f"#{i} total elapsed: {(time.time() - start_time) * 1000}ms")
+
+            ssim_val = ssim(pred, gt, data_range=1, size_average=True) # return (N,)
+            print(ssim_val.item())
+            ssim_total += ssim_val
+
+            pred = pred.cpu().detach().numpy().squeeze(0).transpose((1, 2, 0)).astype(np.uint8)
+            img = Image.fromarray(pred)
+            img.save(os.path.join(args.output_folder, os.path.basename(lq_file)))
+            # cv2.imwrite(os.path.join(args.output_folder, os.path.basename(file)), pred)
+
+        print(f"average ssim: {ssim_total / len(gt_files)}")
     elif args.img[-3:] == 'bin':
         width = 512
         height = 384
@@ -95,10 +113,11 @@ if __name__ == '__main__':
             start_time = time.time()
             pred = model_plain(img)
             print(f"total elapsed: {(time.time() - start_time) * 1000}ms")
-            pred = pred.detach().numpy().squeeze(0).transpose((1, 2, 0))
+            pred = pred.detach().numpy().squeeze(0).transpose((1, 2, 0)) * 255
 
             # print(os.path.join(args.output_folder, template.format(i)))
             cv2.imwrite(os.path.join(args.output_folder, template.format(i)), pred)
+            torch.cuda.empty_cache()
 
     else:
         if args.color == 1:
