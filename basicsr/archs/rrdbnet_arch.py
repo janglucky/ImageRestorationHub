@@ -122,6 +122,162 @@ class RRDBNet(nn.Module):
         #     feat = self.lrelu(self.conv_up3(F.interpolate(feat, scale_factor=2, mode='nearest')))
         out = self.conv_last(self.lrelu(self.conv_hr(feat)))
 
+        out = x + out
+
         if self.phase in ['test', 'export']:
             out = torch.clamp(out * 255, 0, 255)
         return out
+
+@ARCH_REGISTRY.register()
+class RRDBCANet(nn.Module):
+    """Networks consisting of Residual in Residual Dense Block, which is used
+    in ESRGAN.
+
+    ESRGAN: Enhanced Super-Resolution Generative Adversarial Networks.
+
+    We extend ESRGAN for scale x2 and scale x1.
+    Note: This is one option for scale 1, scale 2 in RRDBNet.
+    We first employ the pixel-unshuffle (an inverse operation of pixelshuffle to reduce the spatial size
+    and enlarge the channel size before feeding inputs into the main ESRGAN architecture.
+
+    Args:
+        num_in_ch (int): Channel number of inputs.
+        num_out_ch (int): Channel number of outputs.
+        num_feat (int): Channel number of intermediate features.
+            Default: 64
+        num_block (int): Block number in the trunk network. Defaults: 23
+        num_grow_ch (int): Channels for each growth. Default: 32.
+    """
+
+    def __init__(self, num_in_ch, num_out_ch, scale=4, num_feat=64, num_block=23, num_grow_ch=32, cach = 3, phase = 'train'):
+        super(RRDBCANet, self).__init__()
+        self.scale = scale
+        self.phase = phase
+        if scale == 2:
+            num_in_ch = num_in_ch * 4
+        elif scale == 1:
+            num_in_ch = num_in_ch * 16
+        self.conv_first = nn.Conv2d(num_in_ch, num_feat, 3, 1, 1)
+        self.body = make_layer(RRDB, num_block // 2, num_feat=num_feat, num_grow_ch=num_grow_ch)
+        self.conv_body = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        # upsample
+        self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        if scale == 8:
+            self.conv_up3 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        self.conv_hr = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
+
+        self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
+
+        self.sidein = nn.Conv2d(num_out_ch, num_feat, 3, 1, 1)
+        self.sidenet = make_layer(RRDB, num_block // 2, num_feat=num_feat, num_grow_ch=num_grow_ch)
+        self.sideout = nn.Conv2d(num_feat, cach, 3,1,1)
+        
+
+    def forward(self, x, cond):
+        if self.scale == 2:
+            feat = pixel_unshuffle(x, scale=2)
+        elif self.scale == 1:
+            feat = pixel_unshuffle(x, scale=4)
+        else:
+            feat = x
+        feat = self.conv_first(feat)
+        body_feat = self.conv_body(self.body(feat))
+        feat = feat + body_feat
+        # upsample
+        feat = self.lrelu(self.conv_up1(F.interpolate(feat, scale_factor=2, mode='nearest')))
+        feat = self.lrelu(self.conv_up2(F.interpolate(feat, scale_factor=2, mode='nearest')))
+        # if self.scale == 8:
+        #     feat = self.lrelu(self.conv_up3(F.interpolate(feat, scale_factor=2, mode='nearest')))
+        out_x = self.conv_last(self.lrelu(self.conv_hr(feat)))
+
+        side_x = self.sidein(cond)
+        side_x = self.body(side_x)
+        side_x = self.sideout(side_x)
+        side_x = F.sigmoid(side_x)
+
+        out = (1- side_x) * out_x + side_x * cond
+        
+        if self.phase in ['test', 'export']:
+            out = torch.clamp(out * 255, 0, 255)
+        return out
+    
+@ARCH_REGISTRY.register()
+class RRDBDCANet(nn.Module):
+    """Networks consisting of Residual in Residual Dense Block, which is used
+    in ESRGAN.
+
+    ESRGAN: Enhanced Super-Resolution Generative Adversarial Networks.
+
+    We extend ESRGAN for scale x2 and scale x1.
+    Note: This is one option for scale 1, scale 2 in RRDBNet.
+    We first employ the pixel-unshuffle (an inverse operation of pixelshuffle to reduce the spatial size
+    and enlarge the channel size before feeding inputs into the main ESRGAN architecture.
+
+    Args:
+        num_in_ch (int): Channel number of inputs.
+        num_out_ch (int): Channel number of outputs.
+        num_feat (int): Channel number of intermediate features.
+            Default: 64
+        num_block (int): Block number in the trunk network. Defaults: 23
+        num_grow_ch (int): Channels for each growth. Default: 32.
+    """
+
+    def __init__(self, num_in_ch, num_out_ch, scale=4, num_feat=64, num_block=23, num_grow_ch=32, cach = 3, phase = 'train'):
+        super(RRDBDCANet, self).__init__()
+        self.scale = scale
+        self.phase = phase
+        self.cach = cach
+        if scale == 2:
+            num_in_ch = num_in_ch * 4
+        elif scale == 1:
+            num_in_ch = num_in_ch * 16
+        self.conv_first = nn.Conv2d(num_in_ch, num_feat, 3, 1, 1)
+        self.body = make_layer(RRDB, num_block // 2, num_feat=num_feat, num_grow_ch=num_grow_ch)
+        self.conv_body = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        # upsample
+        self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        if scale == 8:
+            self.conv_up3 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        self.conv_hr = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
+
+        self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
+
+        self.sidein = nn.Conv2d(num_out_ch, num_feat, 3, 1, 1)
+        self.sidenet = make_layer(RRDB, num_block // 2, num_feat=num_feat, num_grow_ch=num_grow_ch)
+        self.sideout = nn.Conv2d(num_feat, cach, 3,1,1)
+        
+
+    def forward(self, x, cond, depth):
+        if self.scale == 2:
+            feat = pixel_unshuffle(x, scale=2)
+        elif self.scale == 1:
+            feat = pixel_unshuffle(x, scale=4)
+        else:
+            feat = x
+        feat = self.conv_first(feat)
+        body_feat = self.conv_body(self.body(feat))
+        feat = feat + body_feat
+        # upsample
+        feat = self.lrelu(self.conv_up1(F.interpolate(feat, scale_factor=2, mode='nearest')))
+        feat = self.lrelu(self.conv_up2(F.interpolate(feat, scale_factor=2, mode='nearest')))
+        # if self.scale == 8:
+        #     feat = self.lrelu(self.conv_up3(F.interpolate(feat, scale_factor=2, mode='nearest')))
+        out_x = self.conv_last(self.lrelu(self.conv_hr(feat)))
+
+        side_x = self.sidein(depth)
+        side_x = self.body(side_x)
+        side_x = self.sideout(side_x)
+        side_x = F.sigmoid(side_x)
+
+        if self.cach == 3:
+            out = out_x + side_x * cond
+        else:
+            out = (1- side_x) * out_x + side_x * cond
+        
+        if self.phase in ['test', 'export']:
+            out = torch.clamp(out * 255, 0, 255)
+        return side_x

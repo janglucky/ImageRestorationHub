@@ -1,6 +1,6 @@
 # general settings
-name: test_ecbsr_m8c32_x1_paired_ddpd_relu
-model_type: SRModel
+name: train_rrdbdcanet_ddpd_fourdata_ch1
+model_type: GANTripledModel
 scale: 1
 num_gpu: 1
 manual_seed: 0
@@ -18,32 +18,28 @@ datasets:
   
   test:
     name: DDPD_test
-    type: PairedImageDataset
+    type: TripledImageDataset
     dataroot_gt: /home/guider/data/sr/DDPD/test_c/target
-    dataroot_lq: /home/guider/data/sr/DDPD/test_c/target
+    dataroot_lq: /home/guider/data/sr/DDPD/test_c/coarse_test
+    dataroot_add: /home/guider/data/sr/DDPD/test_c/source
     io_backend:
       type: disk
 
 # network structures
 network_g:
-  type: ECBSR
-  module_nums: 8
-  channel_nums: 32
-  with_idt: 0
-  act_type: 'relu'
-  scale: 1
-  colors: 3
-
-network_d:
-  type: UNetDiscriminatorSN
+  type: RRDBCANet
   num_in_ch: 3
-  num_feat: 16
-  skip_connection: True
+  num_out_ch: 3
+  num_feat: 64
+  num_block: 23
+  scale: 1
+  num_grow_ch: 32
+  cach: 1
 
 # path
 path:
   # use the pre-trained Real-ESRNet model
-  pretrain_network_g: /home/guider/work/ImageRestorationHub/experiments/train_ecbsr_m8c32_teacher_paired_ddpd_relu/models/net_g_6000.pth
+  pretrain_network_g: /home/guider/work/ImageRestorationHub/experiments/train_rrdbcanet_ddpd_tripleddata_cach1/models/net_g_14000.pth
   param_key_g: params_ema
   strict_load_g: true
   resume_state: ~
@@ -55,15 +51,15 @@ val:
  grids: false
  suffix: ~
 
- metrics:
-    psnr: # metric name
-      type: calculate_psnr
-      crop_border: 0
-      test_y_channel: false
-    ssim: # metric name
-      type: calculate_ssim
-      crop_border: 0
-      test_y_channel: false
+#  metrics:
+#     psnr: # metric name
+#       type: calculate_psnr
+#       crop_border: 0
+#       test_y_channel: false
+#     ssim: # metric name
+#       type: calculate_ssim
+#       crop_border: 0
+#       test_y_channel: false
 
 # logging settings
 logger:

@@ -614,7 +614,7 @@ class UpsampleOneStep(nn.Sequential):
         flops = H * W * self.num_feat * 3 * 9
         return flops
 
-@ARCH_REGISTRY.register()
+# @ARCH_REGISTRY.register()
 class SwinIR(nn.Module):
     r""" SwinIR
         A PyTorch impl of : `SwinIR: Image Restoration Using Swin Transformer`, based on Swin Transformer.
@@ -870,14 +870,18 @@ class SwinIR(nn.Module):
 if __name__ == '__main__':
     upscale = 1
     window_size = 8
-    height = (1024 // upscale // window_size + 1) * window_size
-    width = (720 // upscale // window_size + 1) * window_size
-    model = SwinIR(upscale=4, img_size=(height, width),
+    height = 512
+    width = 512
+    model = SwinIR(upscale=1, img_size=(height, width),
                    window_size=window_size, img_range=1., depths=[6, 6, 6, 6],
                    embed_dim=60, num_heads=[6, 6, 6, 6], mlp_ratio=2, upsampler='pixelshuffledirect')
+    device = torch.device('cuda:0')
+    model.to(device)
+
     print(model)
     print(height, width, model.flops() / 1e9)
 
     x = torch.randn((1, 3, height, width))
+    x = x.to(device)
     x = model(x)
     print(x.shape)

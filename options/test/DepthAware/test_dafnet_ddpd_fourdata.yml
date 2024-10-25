@@ -1,6 +1,6 @@
 # general settings
-name: test_ecbsr_m8c32_x1_paired_ddpd_relu
-model_type: SRModel
+name: test_dafnet_ddpd_fourdata
+model_type: DepthAwareModel
 scale: 1
 num_gpu: 1
 manual_seed: 0
@@ -17,33 +17,28 @@ gan_gt_usm: false
 datasets:
   
   test:
-    name: DDPD_test
-    type: PairedImageDataset
+    name: DDPD_test_reverse
+    type: FourImageDataset
     dataroot_gt: /home/guider/data/sr/DDPD/test_c/target
-    dataroot_lq: /home/guider/data/sr/DDPD/test_c/target
+    dataroot_lq: /home/guider/data/sr/DDPD/test_c/coarse_test
+    dataroot_add: /home/guider/data/sr/DDPD/test_c/source
+    dataroot_depth: /home/guider/data/sr/DDPD/test_c/depth
     io_backend:
       type: disk
 
 # network structures
 network_g:
-  type: ECBSR
-  module_nums: 8
-  channel_nums: 32
-  with_idt: 0
-  act_type: 'relu'
-  scale: 1
-  colors: 3
-
-network_d:
-  type: UNetDiscriminatorSN
-  num_in_ch: 3
-  num_feat: 16
-  skip_connection: True
+  type: DAFNet
+  width: 64
+  enc_blk_nums: [1, 1, 1, 28]
+  middle_blk_num: 1
+  dec_blk_nums: [1, 1, 1, 1]
+  dep_blk_chans: [3, 64, 128, 256, 128, 64, 1]
 
 # path
 path:
   # use the pre-trained Real-ESRNet model
-  pretrain_network_g: /home/guider/work/ImageRestorationHub/experiments/train_ecbsr_m8c32_teacher_paired_ddpd_relu/models/net_g_6000.pth
+  pretrain_network_g: /home/guider/work/ImageRestorationHub/experiments/train_dafnet_sym_ddpd_fourdata/models/net_g_332000.pth
   param_key_g: params_ema
   strict_load_g: true
   resume_state: ~

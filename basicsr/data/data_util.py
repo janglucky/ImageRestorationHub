@@ -236,6 +236,49 @@ def tripled_paths_from_folder(folders, keys, filename_tmpl):
         paths.append(dict([(f'{input_key}_path', input_path), (f'{gt_key}_path', gt_path), (f'{add_key}_path', add_path)]))
     return paths
 
+def four_paths_from_folder(folders, keys, filename_tmpl):
+    """Generate paired paths from folders.
+
+    Args:
+        folders (list[str]): A list of folder path. The order of list should
+            be [input_folder, gt_folder].
+        keys (list[str]): A list of keys identifying folders. The order should
+            be in consistent with folders, e.g., ['lq', 'gt'].
+        filename_tmpl (str): Template for each filename. Note that the
+            template excludes the file extension. Usually the filename_tmpl is
+            for files in the input folder.
+
+    Returns:
+        list[str]: Returned path list.
+    """
+    assert len(folders) == 4, ('The len of folders should be 3 with [input_folder, gt_folder, add_folder]. '
+                               f'But got {len(folders)}')
+    assert len(keys) == 4, ('The len of keys should be 2 with [input_key, gt_key]. ' f'But got {len(keys)}')
+    input_folder, gt_folder, add_folder, dep_folder = folders
+    input_key, gt_key, add_key, dep_key = keys
+
+    input_paths = sorted(list(scandir(input_folder)))
+    gt_paths = sorted(list(scandir(gt_folder)))
+    add_paths = sorted(list(scandir(add_folder)))
+    dep_paths = sorted(list(scandir(dep_folder)))
+    assert len(input_paths) == len(gt_paths), (f'{input_key} and {gt_key} datasets have different number of images: '
+                                               f'{len(input_paths)}, {len(gt_paths)}.')
+    paths = []
+
+    for input_path, gt_path, add_path, dep_path in zip(input_paths, gt_paths, add_paths, dep_paths):
+        input_path = osp.join(input_folder, input_path)
+        gt_path = osp.join(gt_folder, gt_path)
+        add_path = osp.join(add_folder, add_path)
+        dep_path = osp.join(dep_folder, dep_path)
+    # for gt_path in gt_paths:
+    #     basename, ext = osp.splitext(osp.basename(gt_path))
+    #     input_name = f'{filename_tmpl.format(basename)}{ext}'
+    #     input_path = osp.join(input_folder, input_name)
+    #     assert input_name in input_paths, (f'{input_name} is not in ' f'{input_key}_paths.')
+    #     gt_path = osp.join(gt_folder, gt_path)
+        paths.append(dict([(f'{input_key}_path', input_path), (f'{gt_key}_path', gt_path), (f'{add_key}_path', add_path), (f'{dep_key}_path', dep_path)]))
+    return paths
+
 def paired_paths_from_folder(folders, keys, filename_tmpl):
     """Generate paired paths from folders.
 

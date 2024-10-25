@@ -2,7 +2,7 @@ from torch.utils import data as data
 from torchvision.transforms.functional import normalize
 
 from basicsr.data.data_util import tripled_paths_from_folder, paired_paths_from_lmdb, paired_paths_from_meta_info_file
-from basicsr.data.transforms import augment, paired_random_crop
+from basicsr.data.transforms import augment, tripled_random_crop
 from basicsr.utils import FileClient, imfrombytes, img2tensor
 from basicsr.utils.registry import DATASET_REGISTRY
 
@@ -48,7 +48,7 @@ class TripledImageDataset(data.Dataset):
         self.mean = opt['mean'] if 'mean' in opt else None
         self.std = opt['std'] if 'std' in opt else None
 
-        self.gt_folder, self.lq_folder = opt['dataroot_gt'], opt['dataroot_lq']
+        self.gt_folder, self.lq_folder, self.add_folder = opt['dataroot_gt'], opt['dataroot_lq'],  opt['dataroot_add']
         if 'filename_tmpl' in opt:
             self.filename_tmpl = opt['filename_tmpl']
         else:
@@ -62,7 +62,7 @@ class TripledImageDataset(data.Dataset):
             self.paths = paired_paths_from_meta_info_file([self.lq_folder, self.gt_folder], ['lq', 'gt'],
                                                           self.opt['meta_info_file'], self.filename_tmpl)
         else:
-            self.paths = tripled_paths_from_folder([self.lq_folder, self.gt_folder], ['lq', 'gt', 'add'], self.filename_tmpl)
+            self.paths = tripled_paths_from_folder([self.lq_folder, self.gt_folder, self.add_folder], ['lq', 'gt', 'add'], self.filename_tmpl)
 
     def __getitem__(self, index):
         if self.file_client is None:
@@ -87,8 +87,9 @@ class TripledImageDataset(data.Dataset):
         # augmentation for training
         if self.opt['phase'] == 'train':
             gt_size = self.opt['gt_size']
-            # random crop
-            # img_gt, img_lq = paired_random_crop(img_gt, img_lq, gt_size, scale, gt_path)
+            if gt_size > 0:
+                # random crop
+                img_gt, img_lq, img_add = tripled_random_crop(img_gt, img_lq, img_add, gt_size, scale, gt_path)
             # flip, rotation
             img_gt, img_lq, img_add = augment([img_gt, img_lq, img_add], self.opt['use_flip'], self.opt['use_rot'])
 
@@ -101,7 +102,7 @@ class TripledImageDataset(data.Dataset):
             normalize(img_gt, self.mean, self.std, inplace=True)
             normalize(img_add, self.mean, self.std, inplace=True)
 
-        return {'lq': img_lq, 'gt': img_gt, 'add': img_gt, 'lq_path': lq_path, 'gt_path': gt_path, 'add_path': add_path}
+        return {'lq': img_lq, 'gt': img_gt, 'add': img_add, 'lq_path': lq_path, 'gt_path': gt_path, 'add_path': add_path}
 
     def __len__(self):
         return len(self.paths)

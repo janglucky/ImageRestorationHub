@@ -13,13 +13,12 @@ from torch.nn import functional as F
 
 
 @MODEL_REGISTRY.register()
-class GANTripledModel(SRGANModel):
+class DepthAwareModel(SRGANModel):
     """RealESRGAN Model"""
 
     def __init__(self, opt):
-        super(GANTripledModel, self).__init__(opt)
+        super(DepthAwareModel, self).__init__(opt)
         self.usm_sharpener = USMSharp().cuda()
-
 
 
     @torch.no_grad()
@@ -33,14 +32,14 @@ class GANTripledModel(SRGANModel):
 
         if 'add' in data:
             self.add = data['add'].to(self.device)
-            self.gt_usm = self.usm_sharpener(self.add)
 
-
+        if 'dep' in data:
+            self.depth = data['dep'].to(self.device)
 
     def nondist_validation(self, dataloader, current_iter, tb_logger, save_img):
         # do not use the synthetic process during validation
         self.is_train = False
-        super(GANTripledModel, self).nondist_validation(
+        super(DepthAwareModel, self).nondist_validation(
             dataloader, current_iter, tb_logger, save_img)
         self.is_train = True
     
@@ -48,11 +47,11 @@ class GANTripledModel(SRGANModel):
         if hasattr(self, 'net_g_ema'):
             self.net_g_ema.eval()
             with torch.no_grad():
-                self.output = self.net_g_ema(self.lq, self.add)
+                self.output = self.net_g_ema(self.lq, self.add, self.depth)[0]
         else:
             self.net_g.eval()
             with torch.no_grad():
-                self.output = self.net_g(self.lq, self.add)
+                self.output = self.net_g(self.lq, self.add, self.depth)[0]
             self.net_g.train()
 
     def optimize_parameters(self, current_iter):
@@ -72,7 +71,7 @@ class GANTripledModel(SRGANModel):
             p.requires_grad = False
 
         self.optimizer_g.zero_grad()
-        self.output = self.net_g(self.lq, self.add)
+        self.output = self.net_g(self.lq, self.add, self.depth)
 
         if not isinstance(self.output, list):
             self.output = [self.output]
@@ -83,14 +82,17 @@ class GANTripledModel(SRGANModel):
 
             # content loss
             if self.cri_content:
-                l_g_content = self.cri_content(self.output[0], l1_gt)
-                l_g_total += l_g_content
-                loss_dict['l_g_content'] = l_g_content
+                l_g_content_final = self.cri_content(self.output[0], l1_gt)
+                l_g_content_fine = self.cri_content(self.output[1], l1_gt)
+                l_g_total += l_g_content_final
+                l_g_total += l_g_content_fine
+                loss_dict['l_g_content_final'] = l_g_content_final
+                loss_dict['l_g_content_fine'] = l_g_content_fine
             
             # deep edge loss
             if self.cri_edge:
                 l_g_edge = self.cri_edge(self.output[0], l1_gt)
-                l_g_total += l_g_content
+                l_g_total += l_g_edge
                 loss_dict['l_g_edge'] = l_g_edge
             
             # wavelet Loss
@@ -111,7 +113,7 @@ class GANTripledModel(SRGANModel):
 
             # pixel loss
             if self.cri_pix:
-                l_g_pix = self.cri_pix(self.output[0], l1_gt)
+                l_g_pix = self.cri_pix(self.output[1], l1_gt)
                 l_g_total += l_g_pix
                 loss_dict['l_g_pix'] = l_g_pix
             # perceptual loss
@@ -130,6 +132,8 @@ class GANTripledModel(SRGANModel):
                 l_g_total += l_g_gan
                 loss_dict['l_g_gan'] = l_g_gan
 
+
+            loss_dict['l_g_total'] = l_g_total
             l_g_total.backward()
             self.optimizer_g.step()
 

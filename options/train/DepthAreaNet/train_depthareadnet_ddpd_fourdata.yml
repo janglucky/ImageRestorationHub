@@ -1,0 +1,184 @@
+# general settings
+name: train_depthareadnet_sym_ddpd_fourdata
+model_type: DepthAwareModel
+scale: 1
+num_gpu: auto
+manual_seed: 0
+
+# USM the ground-truth
+l1_gt_usm: False
+percep_gt_usm: False
+gan_gt_usm: False
+
+high_order_degradation: False # do not use the high-order degradation generation process
+
+# dataset and data loader settings
+datasets:
+  train:
+    name: DDPD_train_c
+    type: FourImageDataset
+    dataroot_gt: /home/guider/data/sr/DDPD/train_c/target
+    dataroot_lq: /home/guider/data/sr/DDPD/train_c/coarse
+    dataroot_add: /home/guider/data/sr/DDPD/train_c/source
+    dataroot_depth: /home/guider/data/sr/DDPD/train_c/depth
+    io_backend:
+      type: disk
+
+    gt_size: 256
+    use_flip: True
+    use_rot: False
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 1
+    batch_size_per_gpu: 1
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  # Uncomment these for validation
+  val:
+    name: validation
+    type: FourImageDataset
+    dataroot_gt: /home/guider/data/sr/DDPD/test_c/target
+    dataroot_lq: /home/guider/data/sr/DDPD/test_c/coarse_test
+    dataroot_add: /home/guider/data/sr/DDPD/test_c/source
+    dataroot_depth: /home/guider/data/sr/DDPD/test_c/depth
+    io_backend:
+      type: disk
+
+# network structures
+network_g:
+  type: DepthAwareNet
+  width: 64
+  enc_blk_nums: [1, 1, 1, 28]
+  middle_blk_num: 1
+  dec_blk_nums: [1, 1, 1, 1]
+  dep_blk_chans: [3, 64, 128, 256, 128, 64, 1]
+
+network_d:
+  type: UNetDiscriminatorSN
+  num_in_ch: 3
+  num_feat: 64
+  skip_connection: True
+
+# path
+path:
+  # use the pre-trained Real-ESRNet model
+  pretrain_network_g: ~
+  param_key_g: params_ema
+  strict_load_g: true
+  pretrain_network_d: ~
+  param_key_d: params
+  strict_load_d: true
+  resume_state: ~
+
+# training settings
+train:
+  optim_g:
+    type: Adam
+    lr: !!float 1e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+  optim_d:
+    type: Adam
+    lr: !!float 1e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [840_000]
+    gamma: 0.5
+
+  total_iter: 840_000
+  warmup_iter: 10_000  # no warm up
+  ema_decay: 0.999
+
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: !!float 1.0
+    reduction: mean
+  # content loss
+  content_opt:
+    type: SSIMLoss
+    data_range: 1.0
+    size_average: True
+    channel: 3
+    loss_weight: !!float 1.0
+  # edge losses
+  sobel_opt:
+    type: SobelLoss
+    loss_weight: !!float 0.0
+    reduction: mean
+  scharr_opt:
+    type: ScharrLoss
+    loss_weight: !!float 0.0
+    reduction: mean
+  laplacian_opt:
+    type: LaplacianLoss
+    loss_weight: !!float 0.0
+    reduction: mean
+  # artifacts loss
+  artifacts_opt:
+    type: L1Loss
+    loss_weight: !!float 0.0
+    reduction: mean
+  # perceptual loss (content and style losses)
+  perceptual_opt:
+    type: PerceptualLoss
+    layer_weights:
+      # before relu
+      'conv1_2': 0.1
+      'conv2_2': 0.1
+      'conv3_4': 1
+      'conv4_4': 1
+      'conv5_4': 1
+    vgg_type: vgg19
+    use_input_norm: true
+    perceptual_weight: !!float 0.0
+    style_weight: 0
+    range_norm: false
+    criterion: l1
+  # gan loss
+  gan_opt:
+    type: GANLoss
+    gan_type: vanilla
+    real_label_val: 1.0
+    fake_label_val: 0.0
+    loss_weight: !!float 0.0
+
+  net_d_iters: 1
+  net_d_init_iters: 0
+
+# Uncomment these for validation
+# validation settings
+val:
+  val_freq: !!float 1e4
+  save_img: True
+
+  metrics:
+    psnr: # metric name
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+
+    ssim: # metric name
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel: false
+
+# logging settings
+logger:
+  print_freq: 10
+  save_checkpoint_freq: !!float 1e4
+  use_tb_logger: false
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500
