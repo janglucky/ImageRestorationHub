@@ -380,3 +380,46 @@ class LayerNorm2d(nn.Module):
 
     def forward(self, x):
         return LayerNormFunction.apply(x, self.weight, self.bias, self.eps)
+
+# 创建高斯金字塔函数
+def gaussian_pyramid(image, num_levels):
+    pyramid = [image]
+    for _ in range(num_levels - 1):
+        image = F.avg_pool2d(image, kernel_size=2, stride=2)
+        pyramid.append(image)
+    return pyramid
+
+
+# 创建拉普拉斯金字塔函数
+def laplacian_pyramid(image, num_levels):
+    gaussian_pyr = gaussian_pyramid(image, num_levels)
+    laplacian_pyr = []
+    for i in range(num_levels - 1):
+        next_level = F.interpolate(gaussian_pyr[i + 1], scale_factor=2, mode='bilinear', align_corners=False)
+        laplacian = gaussian_pyr[i] - next_level
+        laplacian_pyr.append(laplacian)
+    laplacian_pyr.append(gaussian_pyr[-1])  # 最后一层为高斯金字塔的顶层
+    return laplacian_pyr
+
+
+# 像素级加权高斯金字塔融合函数
+def pixel_weighted_pyramid_fusion(image1, image2, weight_map, num_levels):
+    # 为每张图像生成拉普拉斯金字塔和权重图的高斯金字塔
+    laplacian1 = laplacian_pyramid(image1, num_levels)
+    laplacian2 = laplacian_pyramid(image2, num_levels)
+    gaussian_weights = gaussian_pyramid(weight_map, num_levels)
+
+    # 逐层进行像素级加权融合
+    fused_pyramid = []
+    for l1, l2, gw in zip(laplacian1, laplacian2, gaussian_weights):
+        # 对每张图像应用像素级权重并融合
+        fused = gw * l1 + (1 - gw) * l2
+        fused_pyramid.append(fused)
+
+    # 重建图像
+    fused_image = fused_pyramid[-1]
+    for i in range(num_levels - 2, -1, -1):
+        fused_image = F.interpolate(fused_image, scale_factor=2, mode='bilinear', align_corners=False)
+        fused_image += fused_pyramid[i]
+
+    return fused_image
