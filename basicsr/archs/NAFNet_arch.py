@@ -16,7 +16,7 @@ Simple Baselines for Image Restoration
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from basicsr.archs.arch_util import LayerNorm2d
+from basicsr.archs.arch_util import LayerNorm2d, pixel_weighted_pyramid_fusion
 from basicsr.archs.local_arch import Local_Base
 from basicsr.utils.registry import ARCH_REGISTRY
 
@@ -403,9 +403,8 @@ class DAFNet(nn.Module):
         x = self.ending(x)
         x = x + inp
         onfocus_mask = self.depth_aware_blocks(depth)
-
-        out = (1 - onfocus_mask) * x + onfocus_mask * lq
-    
+        out = pixel_weighted_pyramid_fusion(x, lq, 1-onfocus_mask, 4)
+        # out = (1 - onfocus_mask) * x + onfocus_mask * lq
         return [out[:, :, :H, :W], x[:, :, :H, :W]]
     
     def check_image_size(self, x):
