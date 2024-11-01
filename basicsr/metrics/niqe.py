@@ -140,9 +140,9 @@ def niqe(img, mu_pris_param, cov_pris_param, gaussian_window, block_size_h=96, b
 
 @METRIC_REGISTRY.register()
 def calculate_niqe(img1, img2, crop_border, input_order='HWC', convert_to='y'):
-    return calculate_niqe(img1, crop_border, input_order=input_order, convert_to=convert_to)
+    return calculate_niqe_(img1, crop_border, input_order=input_order, convert_to=convert_to)
 
-def calculate_niqe(img, crop_border, input_order='HWC', convert_to='y'):
+def calculate_niqe_(img, crop_border, input_order='HWC', convert_to='y'):
     """Calculate NIQE (Natural Image Quality Evaluator) metric.
 
     Ref: Making a "Completely Blind" Image Quality Analyzer.
