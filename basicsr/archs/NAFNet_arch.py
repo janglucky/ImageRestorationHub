@@ -402,7 +402,7 @@ class DAFNet(nn.Module):
 
         x = self.ending(x)
         x = x + inp
-        onfocus_mask = self.depth_aware_blocks(depth)
+        onfocus_mask = self.depth_aware_blocks(torch.cat[depth, lq], dim=1)
         out = pixel_weighted_pyramid_fusion(x, lq, 1-onfocus_mask, 4)
         # out = (1 - onfocus_mask) * x + onfocus_mask * lq
         return [out[:, :, :H, :W], x[:, :, :H, :W]]
