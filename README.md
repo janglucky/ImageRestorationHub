@@ -4,9 +4,26 @@ A Image restoration hub based on basicsr library, including: image super resolut
 ## News
 - 2024-10-14. Add inference code to quickly verify model result.
 
-## Supported models
+## Features
+### Supported models
 - ECBSR. Real-time super resolution.
 - SwinIR. A swin-tansformer based strong image resotration baseline.
+
+### Supported Metrics
+- niqe
+- ssim
+- psnr
+
+### Supported Losses
+- L1 loss
+- MSE loss
+- SSIM loss
+- MSSSIM loss
+- MultiScaleGAN loss
+
+### Supported Input Type
+- grayscale
+- rgb
 
 ## Results
 ### Subjective effect. 
