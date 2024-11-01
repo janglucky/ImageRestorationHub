@@ -46,6 +46,7 @@ datasets:
     io_backend:
       type: disk
 
+    img_flag: grayscale
     blur_kernel_size: 21
     kernel_list: ['iso', 'aniso', 'generalized_iso', 
                   'generalized_aniso', 'plateau_iso', 'plateau_aniso']
@@ -82,8 +83,8 @@ datasets:
   val:
     name: validation
     type: PairedImageDataset
-    dataroot_gt: /home/guider/data/sr/crop/demo_sub/gt
-    dataroot_lq: /home/guider/data/sr/crop/demo_sub/lr
+    dataroot_gt: /home/guider/nas/data/sr/DIV2K_train_HR_sub_paired/gt
+    dataroot_lq: /home/guider/nas/data/sr/DIV2K_train_HR_sub_paired/lr
     io_backend:
       type: disk
 

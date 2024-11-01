@@ -966,7 +966,7 @@ class SSIMLoss(torch.nn.Module):
         ))
 
 @LOSS_REGISTRY.register()
-class MSSSIM(torch.nn.Module):
+class MSSSIMLoss(torch.nn.Module):
     def __init__(
         self,
         data_range: float = 255,
@@ -990,7 +990,7 @@ class MSSSIM(torch.nn.Module):
             K (list or tuple, optional): scalar constants (K1, K2). Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
         """
 
-        super(MSSSIM, self).__init__()
+        super(MSSSIMLoss, self).__init__()
         self.win_size = win_size
         self.win = _fspecial_gauss_1d(win_size, win_sigma).repeat([channel, 1] + [1] * spatial_dims)
         self.size_average = size_average

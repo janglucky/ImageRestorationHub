@@ -381,6 +381,27 @@ class LayerNorm2d(nn.Module):
     def forward(self, x):
         return LayerNormFunction.apply(x, self.weight, self.bias, self.eps)
 
+def gaussian_blur(input, kernel_size, sigma):
+    b, c , h, w = input.shape
+    kernel = torch.Tensor([[math.exp(-(x**2 + y**2)/(2*sigma**2)) / (2*math.pi*sigma**2) for x in range(-kernel_size//2, kernel_size//2)]
+                           for y in range(-kernel_size//2, kernel_size//2)])
+    kernel = kernel / torch.sum(kernel)
+    kernel = kernel.resize(1, 1, kernel_size, kernel_size).to(input.device)
+    kernel = kernel.repeat(c,1,1,1)
+    blurred = F.conv2d(input, kernel, padding=kernel_size//2, groups=c)
+    return blurred
+ 
+def pyr_down(image):
+    image = gaussian_blur(image, 3, 1)
+    image = image[:, :, ::2,::2]
+    return image
+
+def pyr_up(image):
+    b,c,h,w = image.shape
+    out = torch.zeros(b, c, h*2, w *2).to(image.device)
+    out[:,:,::2,::2] = image
+    return out
+
 # 创建高斯金字塔函数
 def gaussian_pyramid(image, num_levels):
     pyramid = [image]
@@ -389,6 +410,13 @@ def gaussian_pyramid(image, num_levels):
         pyramid.append(image)
     return pyramid
 
+
+def weight_pyramid(weight, num_levels):
+    pyramid = [weight]
+    for _ in range(num_levels - 1):
+        weight = F.avg_pool2d(weight, 2, 2)
+        pyramid.append(weight)
+    return pyramid
 
 # 创建拉普拉斯金字塔函数
 def laplacian_pyramid(image, num_levels):
@@ -403,10 +431,10 @@ def laplacian_pyramid(image, num_levels):
 
 
 # 像素级加权高斯金字塔融合函数
-def pixel_weighted_pyramid_fusion(image1, image2, weight_map, num_levels):
+def pixel_weighted_pyramid_fusion(coarse, lq, weight_map, num_levels):
     # 为每张图像生成拉普拉斯金字塔和权重图的高斯金字塔
-    laplacian1 = laplacian_pyramid(image1, num_levels)
-    laplacian2 = laplacian_pyramid(image2, num_levels)
+    laplacian1 = laplacian_pyramid(coarse, num_levels)
+    laplacian2 = laplacian_pyramid(lq, num_levels)
     gaussian_weights = gaussian_pyramid(weight_map, num_levels)
 
     # 逐层进行像素级加权融合

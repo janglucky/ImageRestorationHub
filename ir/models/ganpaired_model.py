@@ -25,10 +25,8 @@ class GANPairedModel(SRGANModel):
     @torch.no_grad()
     def feed_data(self, data):
         self.lq = data['lq'].to(self.device)
-        # self.lq = self.lq.mean(dim=1, keepdim=True)
         if 'gt' in data:
             self.gt = data['gt'].to(self.device)
-            # self.gt = self.gt.mean(dim=1, keepdim=True)
             self.gt_usm = self.usm_sharpener(self.gt)
 
 

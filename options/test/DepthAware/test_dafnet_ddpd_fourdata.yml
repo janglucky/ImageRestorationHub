@@ -59,6 +59,10 @@ val:
       type: calculate_ssim
       crop_border: 0
       test_y_channel: false
+    niqe: # metric name
+      type: calculate_niqe
+      crop_border: 0
+      convert_to: 'y'
 
 # logging settings
 logger:
