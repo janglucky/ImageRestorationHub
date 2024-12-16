@@ -1114,6 +1114,32 @@ class NRSSLoss(torch.nn.Module):
             nonnegative_ssim=self.nonnegative_ssim,
         )
 
+@LOSS_REGISTRY.register()
+class CrossEntropyLoss(nn.Module):
+    """Cross entropy loss with label smoothing regularizer.
+
+    Reference:
+    Szegedy et al. Rethinking the Inception Architecture for Computer Vision. CVPR 2016.
+    Equation: y = (1 - epsilon) * y + epsilon / K.
+
+    Args:
+        num_classes (int): number of classes.
+        epsilon (float): weight.
+    """
+    def __init__(self, loss_weight = 1.0):
+        super(CrossEntropyLoss, self).__init__()
+        self.criterion = nn.CrossEntropyLoss()
+        self.loss_weight = loss_weight
+
+
+    def forward(self, inputs, targets):
+        """
+        Args:
+            inputs: prediction matrix (before softmax) with shape (batch_size, num_classes)
+            targets: ground truth labels with shape (num_classes)
+        """
+        loss = self.loss_weight*self.criterion(inputs, targets)
+        return loss
 # @LOSS_REGISTRY.register()
 # class NRSSLoss(torch.nn.Module):
 #     def __init__(

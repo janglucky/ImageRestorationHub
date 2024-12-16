@@ -58,8 +58,8 @@ datasets:
   train:
     name: DIV2K
     type: DASRDataset
-    dataroot_gt: /home/guider/data/sr/DIV2K/DIV2K_train_HR_sub
-    meta_info: /home/guider/data/sr/DIV2K/DIV2K_train_HR_sub.txt
+    dataroot_gt: /home/guider/nas/data/sr/DIV2K_train_HR_sub
+    meta_info: /home/guider/nas/data/sr/DIV2K_train_HR_sub.txt
     io_backend:
       type: disk
 
@@ -108,7 +108,7 @@ datasets:
     # data loader
     use_shuffle: true
     num_worker_per_gpu: 1
-    batch_size_per_gpu: 8
+    batch_size_per_gpu: 2
     dataset_enlarge_ratio: 1
     prefetch_mode: cuda
     pin_memory: True
@@ -116,7 +116,7 @@ datasets:
   val:
     name: IR4K_val
     type: SingleImageDataset
-    dataroot_lq: /home/guider/data/sr/IR4K_valid/lq_4x
+    dataroot_lq: /home/guider/nas/data/sr/DIV2K_train_HR_sub
     io_backend:
       type: disk
 
